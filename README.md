@@ -5,9 +5,6 @@ Puppet UFW Module
 
 Module for configuring UFW (Uncomplicated Firewall).
 
-Tested on Debian GNU/Linux 6.0 Squeeze and Ubuntu 12.04 LTS with Puppet 2.7.
-Patches for other operating systems are welcome.
-
 Usage
 -----
 
@@ -18,11 +15,27 @@ will be enabled, and all incomming connections will be denied:
 include ufw
 ```
 
+You can change the forward policy, which defaults to `DROP`:
+
+```puppet
+class { 'ufw':
+  forward => 'ACCEPT',
+}
+```
+
+You can change block also the outgoing traffic by default:
+
+```puppet
+class { 'ufw':
+  deny_outgoing => true,
+}
+```
+
 You can then allow certain connections:
 
 ```puppet
 ufw::allow { "allow-ssh-from-all":
-  port => 22,
+  port => '22',
 }
 
 ufw::allow { "allow-all-from-trusted":
@@ -30,13 +43,14 @@ ufw::allow { "allow-all-from-trusted":
 }
 
 ufw::allow { "allow-http-on-specific-interface":
-  port => 80,
+  port => '80',
   ip => "10.0.0.20",
 }
 
-ufw::allow { "allow-dns-over-udp":
-  port => 53,
+ufw::allow { "allow-outgoing-dns-over-udp":
+  port => '53',
   proto => "udp",
+  direction => "out",
 }
 ```
 
@@ -55,13 +69,19 @@ You can also rate limit certain ports (the IP is blocked if it initiates
 6 or more connections within 30 seconds):
 
 ```puppet
-ufw::limit { 22: }
+ufw::limit { '22': }
 ```
-    
-You can also adjust the ufw logging settings
 
+To delete a single rule, add `ensure => absent` to the allow.
 ```puppet
-ufw::logging { "prevent-logging":
-    level => 'off',
+ufw::allow { "allow-ssh-from-all":
+  ensure => absent,
+  port   => '22',
 }
 ```
+Like most Puppet resources, allow this to successfully run on all your machines
+at least once before removing it, in order to assure that the rule is gone.
+
+
+## Known Limitations ##
+Currently it is not possible to purge unmanaged rules and remove defined rules this will need to be done manually. (see #21 )

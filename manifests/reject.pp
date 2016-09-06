@@ -1,27 +1,80 @@
-define ufw::reject($proto='tcp', $port='all', $ip='', $from='any') {
+#  Installs and enables Ubuntu's "uncomplicated" firewall.
+#
+#  Be careful calling this class alone, it will by default enable ufw
+# and disable all incoming traffic.
+#
+#
+# @example when declaring the ufw class
+#  ufw::deny { 'deny-ssh-from-all':
+#    port => '22',
+#  }
+#
+# @param direction (String) The first parameter for this class
+# @param from (String) Ip address to reject access from. default: any
+# @param ip (String) Ip address to reject access to. default: ''
+# @param port (String) Port to act on. default: all
+# @param proto (String) Protocol to use. default: tcp
+define ufw::reject(
+  $direction ='IN',
+  $from = 'any',
+  $ip = '',
+  $port = 'all',
+  $proto = 'tcp',
+) {
+  validate_re($direction, 'IN|OUT')
+  validate_re($proto, 'tcp|udp')
+  validate_string($from,
+    $ip,
+    $port
+  )
 
-  # For 'reject' action, the default is to reject to any address
+  $dir = $direction ? {
+    'out'   => 'OUT',
+    default => ''
+  }
+
+  # For 'reject' action, the default is to deny to any address
   $ipadr = $ip ? {
     ''      => 'any',
     default => $ip,
   }
 
-  $from_match = $from ? {
-    'any'   => 'Anywhere',
-    default => "$from",
+  $ipver = $ipadr ? {
+    /:/     => 'v6',
+    default => 'v4',
   }
 
-  exec { "ufw-reject-${proto}-from-${from}-to-${ipadr}-port-${port}":
+  $from_match = $from ? {
+    'any'   => $ipver ? {
+      'v4' => 'Anywhere',
+      'v6' => 'Anywhere \(v6\)',
+      },
+    default => $from,
+  }
+
+  $ipadr_match = $ipadr ? {
+    'any'   => $ipver ? {
+      'v4' => 'Anywhere',
+      'v6' => 'Anywhere \(v6\)',
+    },
+    default => $ipadr,
+  }
+
+  $command  = $port ? {
+    'all'   => "ufw reject ${dir} proto ${proto} from ${from} to ${ipadr}",
+    default => "ufw reject ${dir} proto ${proto} from ${from} to ${ipadr} port ${port}",
+  }
+
+  $unless   = $port ? {
+    'all'   => "ufw status | grep -qE '^${ipadr_match}/${proto} +REJECT ${dir} +${from_match}( +.*)?$'",
+    default => "ufw status | grep -qEe '^${ipadr_match} ${port}/${proto} +REJECT ${dir} +${from_match}( +.*)?$' -qe '^${port}/${proto} +REJECT ${dir} +${from_match}( +.*)?$'", # lint:ignore:140chars
+  }
+
+  exec { "ufw-reject-${direction}-${proto}-from-${from}-to-${ipadr}-port-${port}":
     path     => '/usr/sbin:/bin:/usr/bin',
     provider => 'posix',
-    command  => $port ? {
-      'all'   => "ufw reject proto $proto from $from to $ipadr",
-      default => "ufw reject proto $proto from $from to $ipadr port $port",
-    },
-    unless   => $port ? {
-      'all'   => "ufw status | grep -qE '^${ipadr}/${proto} +REJECT +${from_match}$'",
-      default => "ufw status | grep -qEe '^${ipadr} ${port}/${proto} +REJECT +${from_match}$' -qe '^${port}/${proto} +REJECT +${from_match}$'",
-    },
+    command  => $command,
+    unless   => $unless,
     require  => Exec['ufw-default-deny'],
     before   => Exec['ufw-enable'],
   }
