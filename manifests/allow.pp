@@ -67,10 +67,10 @@ define ufw::allow(
   }
 
   $grep_existing_rule = "${ipadr}:${port}" ? {
-    'any:all'    => "grep -qE ' +ALLOW ${dir} +${from_match}$'",
-    /[0-9]:all$/ => "grep -qE '^${ipadr}${proto_match} +ALLOW +${from_match}${from_proto_match}$'",
-    /^any:[0-9]/ => "grep -qE '^${port}${proto_match} +ALLOW +${from_match}$'",
-    default      => "grep -qE '^${ipadr} ${port}${proto_match} +ALLOW +${from_match}$'",
+    'any:all'    => "grep -qE ' +ALLOW ${dir} +${from_match} *$'",
+    /[0-9]:all$/ => "grep -qE '^${ipadr}${proto_match} +ALLOW +${from_match}${from_proto_match} *$'",
+    /^any:[0-9]/ => "grep -qE '^${port}${proto_match} +ALLOW +${from_match} *$'",
+    default      => "grep -qE '^${ipadr} ${port}${proto_match} +ALLOW +${from_match} *$'",
   }
 
   $rule = $port ? {
